@@ -11,15 +11,25 @@ export class AutoTrackingService {
   private static lastSpeed: number = 0;
   private static speedHistory: number[] = [];
   private static isDriving = false;
+  private static tripActive = false; // Whether we're in an active trip
   private static drivingStartTime: number | null = null;
   private static stationaryStartTime: number | null = null;
+  private static lastSignificantMovement: number | null = null; // Timestamp of last position change
+  private static lastSignificantLocation: LocationData | null = null; // Last location where movement was detected
   private static listeners: Set<(isDriving: boolean) => void> = new Set();
   
-  // Configuration
-  private static readonly DRIVING_SPEED_THRESHOLD = 10; // mph - minimum speed to consider driving
-  private static readonly STATIONARY_SPEED_THRESHOLD = 3; // mph - below this is considered stopped
-  private static readonly MIN_DRIVING_TIME = 30000; // 30 seconds - minimum time moving to start trip
-  private static readonly MIN_STATIONARY_TIME = 60000; // 60 seconds - minimum time stopped to end trip
+  // Configuration - Trip Start (strict to prevent false starts)
+  private static readonly TRIP_START_SPEED_THRESHOLD = 10; // mph - minimum speed to start a new trip
+  private static readonly MIN_TRIP_START_TIME = 30000; // 30 seconds - minimum time moving to start trip
+  
+  // Configuration - Trip Continuation (lenient for rush hour traffic)
+  private static readonly TRIP_CONTINUATION_SPEED_THRESHOLD = 3; // mph - keep trip alive at lower speeds
+  private static readonly MIN_MOVEMENT_DISTANCE = 0.01; // miles (~50 feet) - minimum distance to count as movement
+  private static readonly MOVEMENT_CHECK_WINDOW = 120000; // 2 minutes - window to check for movement
+  
+  // Configuration - Trip End (very strict - only end when truly stopped)
+  private static readonly MIN_TRIP_END_STATIONARY_TIME = 300000; // 5 minutes (300 seconds) - time before considering trip ended
+  private static readonly MAX_STATIONARY_SPEED = 2; // mph - max speed to consider stationary
 
   static isAutoTrackingEnabled(): boolean {
     return this.isEnabled;
@@ -43,6 +53,7 @@ export class AutoTrackingService {
       // Trip will be stopped when user opens app
       this.isDriving = false;
     }
+    this.tripActive = false;
   }
 
   private static startMonitoring(): void {
@@ -77,6 +88,9 @@ export class AutoTrackingService {
     this.lastLocation = null;
     this.lastSpeed = 0;
     this.speedHistory = [];
+    this.tripActive = false;
+    this.lastSignificantMovement = null;
+    this.lastSignificantLocation = null;
   }
 
   private static async handleLocationUpdate(position: GeolocationPosition): Promise<void> {
@@ -106,61 +120,174 @@ export class AutoTrackingService {
       }
     }
 
-    // Update speed history (keep last 5 readings for smoothing)
+    // Update speed history (keep last 10 readings for better smoothing)
     this.speedHistory.push(speed);
-    if (this.speedHistory.length > 5) {
+    if (this.speedHistory.length > 10) {
       this.speedHistory.shift();
     }
     
-    // Average speed for more stable detection
-    const avgSpeed = this.speedHistory.reduce((a, b) => a + b, 0) / this.speedHistory.length;
+    // Calculate weighted average (recent speeds weighted more heavily)
+    let totalWeight = 0;
+    let weightedSum = 0;
+    this.speedHistory.forEach((s, index) => {
+      const weight = index + 1; // More recent = higher weight
+      weightedSum += s * weight;
+      totalWeight += weight;
+    });
+    const avgSpeed = totalWeight > 0 ? weightedSum / totalWeight : 0;
     this.lastSpeed = avgSpeed;
 
-    // Determine if driving
-    const now = Date.now();
-    const wasDriving = this.isDriving;
+    // Calculate distance moved since last location
+    let distanceMoved = 0;
+    if (this.lastLocation) {
+      distanceMoved = locationService.calculateDistance(
+        this.lastLocation.latitude,
+        this.lastLocation.longitude,
+        currentLocation.latitude,
+        currentLocation.longitude
+      );
+    }
 
-    if (avgSpeed >= this.DRIVING_SPEED_THRESHOLD) {
-      // Moving fast enough to be driving
+    const now = Date.now();
+
+    // Check if trip is currently active
+    const hasActiveTrip = ActiveTripService.isActive();
+    if (hasActiveTrip && !this.tripActive) {
+      // Trip was started (maybe manually), mark as active
+      this.tripActive = true;
+      this.lastSignificantMovement = now;
+      this.lastSignificantLocation = currentLocation;
+    }
+
+    if (this.tripActive) {
+      // Trip is active - use lenient continuation logic
+      this.handleActiveTrip(currentLocation, avgSpeed, distanceMoved, now);
+    } else {
+      // No active trip - use strict start logic
+      this.handleTripStart(currentLocation, avgSpeed, distanceMoved, now);
+    }
+
+    // Update significant movement tracking
+    if (distanceMoved >= this.MIN_MOVEMENT_DISTANCE) {
+      this.lastSignificantMovement = now;
+      this.lastSignificantLocation = currentLocation;
+    }
+
+    this.lastLocation = currentLocation;
+  }
+
+  private static handleTripStart(
+    location: LocationData,
+    avgSpeed: number,
+    _distanceMoved: number, // Reserved for future use
+    now: number
+  ): void {
+    // Strict criteria to start a new trip
+    if (avgSpeed >= this.TRIP_START_SPEED_THRESHOLD) {
+      // Moving fast enough to start a trip
       if (!this.isDriving) {
-        // Just started moving
         this.drivingStartTime = now;
         this.stationaryStartTime = null;
       }
       
       // Check if we've been moving long enough to start tracking
-      if (!wasDriving && this.drivingStartTime && (now - this.drivingStartTime) >= this.MIN_DRIVING_TIME) {
-        this.startAutoTrip(currentLocation);
+      if (this.drivingStartTime && (now - this.drivingStartTime) >= this.MIN_TRIP_START_TIME) {
+        this.startAutoTrip(location);
         this.isDriving = true;
+        this.tripActive = true;
+        this.lastSignificantMovement = now;
+        this.lastSignificantLocation = location;
         this.notifyListeners(true);
-      } else if (wasDriving) {
-        // Already driving - update trip location
-        if (ActiveTripService.isActive()) {
-          ActiveTripService.updateLocation(currentLocation);
-        }
       }
-    } else if (avgSpeed <= this.STATIONARY_SPEED_THRESHOLD) {
-      // Moving slowly or stopped
-      if (this.isDriving) {
-        // Just stopped
+    } else {
+      // Not moving fast enough - reset start timer
+      this.drivingStartTime = null;
+    }
+  }
+
+  private static handleActiveTrip(
+    location: LocationData,
+    avgSpeed: number,
+    distanceMoved: number,
+    now: number
+  ): void {
+    // Lenient criteria to continue an active trip
+    const wasDriving = this.isDriving;
+    
+    // Update trip location continuously
+    if (ActiveTripService.isActive()) {
+      ActiveTripService.updateLocation(location);
+    }
+
+    // Check if we should continue the trip
+    const shouldContinue = this.shouldContinueTrip(avgSpeed, distanceMoved, now);
+
+    if (shouldContinue) {
+      // Continue trip - reset stationary timer
+      this.stationaryStartTime = null;
+      this.isDriving = avgSpeed >= this.TRIP_CONTINUATION_SPEED_THRESHOLD;
+      
+      if (!wasDriving && this.isDriving) {
+        this.notifyListeners(true);
+      }
+    } else {
+      // Might be stopping - check if truly stopped
+      // Only consider stationary if speed is very low
+      if (avgSpeed <= this.MAX_STATIONARY_SPEED) {
         if (!this.stationaryStartTime) {
           this.stationaryStartTime = now;
         }
-        
-        // Check if we've been stopped long enough to end trip
-        if (this.stationaryStartTime && (now - this.stationaryStartTime) >= this.MIN_STATIONARY_TIME) {
+
+        // Check if we've been truly stationary long enough to consider trip ended
+        const stationaryDuration = now - this.stationaryStartTime;
+        if (stationaryDuration >= this.MIN_TRIP_END_STATIONARY_TIME) {
+          // Been stationary for 5+ minutes - mark as stopped
           // Don't auto-end - let user confirm when they open the app
-          // Just mark as not driving
           this.isDriving = false;
           this.notifyListeners(false);
+        } else {
+          // Still in the grace period - keep trip alive
+          this.isDriving = false;
         }
       } else {
+        // Speed is low but not zero - reset stationary timer
         this.stationaryStartTime = null;
-        this.drivingStartTime = null;
       }
     }
+  }
 
-    this.lastLocation = currentLocation;
+  private static shouldContinueTrip(
+    avgSpeed: number,
+    distanceMoved: number,
+    now: number
+  ): boolean {
+    // Continue trip if ANY of these conditions are met:
+    
+    // 1. Speed is above continuation threshold (even slow traffic)
+    if (avgSpeed >= this.TRIP_CONTINUATION_SPEED_THRESHOLD) {
+      return true;
+    }
+
+    // 2. Position moved significantly (creeping forward in traffic)
+    if (distanceMoved >= this.MIN_MOVEMENT_DISTANCE) {
+      return true;
+    }
+
+    // 3. Movement detected recently (within last 2 minutes)
+    if (this.lastSignificantMovement && 
+        (now - this.lastSignificantMovement) < this.MOVEMENT_CHECK_WINDOW) {
+      return true;
+    }
+
+    // 4. Speed was decent recently (was moving in last 5 minutes)
+    // Check if any recent speeds in history were above 5 mph
+    const recentSpeeds = this.speedHistory.slice(-10); // Last 10 readings
+    const hasRecentSpeed = recentSpeeds.some(s => s >= 5);
+    if (hasRecentSpeed) {
+      return true;
+    }
+
+    return false;
   }
 
   private static async startAutoTrip(location: LocationData): Promise<void> {
@@ -216,11 +343,27 @@ export class AutoTrackingService {
     };
 
     ActiveTripService.saveActiveTrip(tripData);
+    this.tripActive = true;
+    this.lastSignificantMovement = Date.now();
+    this.lastSignificantLocation = location;
 
     // Start location tracking
     locationService.startTracking(
       (loc) => {
         ActiveTripService.updateLocation(loc);
+        // Update movement tracking
+        if (this.lastSignificantLocation) {
+          const dist = locationService.calculateDistance(
+            this.lastSignificantLocation.latitude,
+            this.lastSignificantLocation.longitude,
+            loc.latitude,
+            loc.longitude
+          );
+          if (dist >= this.MIN_MOVEMENT_DISTANCE) {
+            this.lastSignificantMovement = Date.now();
+            this.lastSignificantLocation = loc;
+          }
+        }
       },
       (err) => {
         console.error('Auto-tracking location error:', err);
