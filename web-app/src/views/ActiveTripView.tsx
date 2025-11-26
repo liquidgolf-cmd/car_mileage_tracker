@@ -1,108 +1,80 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { locationService } from '../services/LocationService';
+import { ActiveTripService } from '../services/ActiveTripService';
 import { StorageService } from '../services/StorageService';
-import { LocationData, TripCategory, Trip } from '../types';
+import { TripCategory, Trip } from '../types';
 
 interface ActiveTripViewProps {
   onTripEnded: () => void;
 }
 
 function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
-  const [startLocation, setStartLocation] = useState<LocationData | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
-  const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [category, setCategory] = useState<TripCategory>(TripCategory.Business);
-  const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const startTimeRef = useRef<Date | null>(null);
-  const intervalRef = useRef<number | null>(null);
+  const [tripData, setTripData] = useState(ActiveTripService.getActiveTrip());
 
   useEffect(() => {
-    startTracking();
+    // Subscribe to trip data updates
+    const unsubscribe = ActiveTripService.subscribe((data) => {
+      if (data) {
+        setTripData(data);
+        // Update duration when trip data changes
+        const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
+        setDuration(elapsed);
+      } else {
+        setTripData(null);
+      }
+    });
+
+    // Update duration periodically while component is mounted
+    const intervalId = setInterval(() => {
+      const data = ActiveTripService.getActiveTrip();
+      if (data) {
+        setTripData(data);
+        const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
+        setDuration(elapsed);
+      }
+    }, 1000);
+
+    // Cleanup: Don't stop tracking when component unmounts
+    // Only stop when explicitly ending the trip
     return () => {
-      stopTracking();
+      unsubscribe();
+      clearInterval(intervalId);
     };
   }, []);
 
-  const startTracking = async () => {
-    try {
-      const hasPermission = await locationService.requestPermission();
-      if (!hasPermission) {
-        setError('Location permission denied. Please enable location access.');
-        return;
-      }
+  if (!tripData) {
+    // No active trip - should not happen, but handle gracefully
+    return null;
+  }
 
-      startTimeRef.current = new Date();
-      
-      // Start duration timer
-      intervalRef.current = window.setInterval(() => {
-        if (startTimeRef.current) {
-          setDuration(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000));
-        }
-      }, 1000);
-
-      // Start location tracking
-      locationService.startTracking(
-        (location) => {
-          if (!startLocation) {
-            setStartLocation(location);
-          }
-          setCurrentLocation(location);
-          
-          if (startLocation) {
-            const dist = locationService.calculateDistance(
-              startLocation.latitude,
-              startLocation.longitude,
-              location.latitude,
-              location.longitude
-            );
-            setDistance(dist);
-          }
-        },
-        (err) => {
-          setError(err.message);
-        }
-      );
-
-      // Load default category from settings
-      const settings = StorageService.getSettings();
-      if (settings.defaultCategory) {
-        setCategory(settings.defaultCategory as TripCategory);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start tracking');
-    }
+  const handleCategoryChange = (category: TripCategory) => {
+    ActiveTripService.updateCategory(category);
   };
 
-  const stopTracking = () => {
-    locationService.stopTracking();
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+  const handleNotesChange = (notes: string) => {
+    ActiveTripService.updateNotes(notes);
   };
 
   const handleEndTrip = async () => {
-    if (!startLocation || !currentLocation || !startTimeRef.current) {
+    if (!tripData.startLocation || !tripData.currentLocation) {
       setError('Missing trip data');
       return;
     }
 
     const confirmed = window.confirm(
-      `Save trip?\nDistance: ${distance.toFixed(2)} miles\nCategory: ${category}`
+      `Save trip?\nDistance: ${tripData.distance.toFixed(2)} miles\nCategory: ${tripData.category}`
     );
 
     if (!confirmed) {
-      stopTracking();
-      onTripEnded();
       return;
     }
 
     // Get end location address
-    let endAddress = currentLocation.address;
+    let endAddress = tripData.currentLocation.address;
     if (!endAddress) {
-      endAddress = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+      endAddress = `${tripData.currentLocation.latitude.toFixed(6)}, ${tripData.currentLocation.longitude.toFixed(6)}`;
     }
 
     const settings = StorageService.getSettings();
@@ -110,23 +82,28 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
 
     const trip: Trip = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      startDate: startTimeRef.current,
+      startDate: new Date(tripData.startTime),
       endDate: new Date(),
-      startLocation: startLocation.address || `${startLocation.latitude.toFixed(6)}, ${startLocation.longitude.toFixed(6)}`,
+      startLocation: tripData.startLocation.address || `${tripData.startLocation.latitude.toFixed(6)}, ${tripData.startLocation.longitude.toFixed(6)}`,
       endLocation: endAddress,
-      startLatitude: startLocation.latitude,
-      startLongitude: startLocation.longitude,
-      endLatitude: currentLocation.latitude,
-      endLongitude: currentLocation.longitude,
-      distance: parseFloat(distance.toFixed(2)),
-      category,
-      notes,
+      startLatitude: tripData.startLocation.latitude,
+      startLongitude: tripData.startLocation.longitude,
+      endLatitude: tripData.currentLocation.latitude,
+      endLongitude: tripData.currentLocation.longitude,
+      distance: parseFloat(tripData.distance.toFixed(2)),
+      category: tripData.category,
+      notes: tripData.notes,
       mileageRate,
-      totalDeduction: parseFloat((distance * mileageRate).toFixed(2))
+      totalDeduction: parseFloat((tripData.distance * mileageRate).toFixed(2))
     };
 
     StorageService.saveTrip(trip);
-    stopTracking();
+    
+    // Stop tracking and clear active trip
+    locationService.stopTracking();
+    ActiveTripService.stopTimer();
+    ActiveTripService.clearActiveTrip();
+    
     onTripEnded();
   };
 
@@ -154,7 +131,7 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
         </div>
 
         <div className="text-center mb-3">
-          <div className="medium-number">{distance.toFixed(2)}</div>
+          <div className="medium-number">{tripData.distance.toFixed(2)}</div>
           <div className="text-secondary">miles</div>
         </div>
 
@@ -162,8 +139,8 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
           {Object.values(TripCategory).map((cat) => (
             <button
               key={cat}
-              className={category === cat ? 'active' : ''}
-              onClick={() => setCategory(cat)}
+              className={tripData.category === cat ? 'active' : ''}
+              onClick={() => handleCategoryChange(cat)}
             >
               {cat}
             </button>
@@ -174,8 +151,8 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
           <textarea
             className="form-textarea"
             placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={tripData.notes}
+            onChange={(e) => handleNotesChange(e.target.value)}
             rows={3}
           />
         </div>
@@ -195,4 +172,3 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
 }
 
 export default ActiveTripView;
-

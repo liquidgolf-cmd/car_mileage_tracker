@@ -1,35 +1,85 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subscriptionService } from '../services/SubscriptionService';
-import { SubscriptionStatus } from '../types';
+import { ActiveTripService } from '../services/ActiveTripService';
+import { locationService } from '../services/LocationService';
+import { StorageService } from '../services/StorageService';
+import { SubscriptionStatus, TripCategory } from '../types';
 import ActiveTripView from './ActiveTripView';
 import SubscriptionView from './SubscriptionView';
 
 function HomeView() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
-  const [isTracking, setIsTracking] = useState(false);
+  const [isTracking, setIsTracking] = useState(ActiveTripService.isActive());
   const [showSubscription, setShowSubscription] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     updateSubscriptionStatus();
+    // Check if there's an active trip
+    setIsTracking(ActiveTripService.isActive());
+    
+    // Subscribe to active trip changes
+    const unsubscribe = ActiveTripService.subscribe((tripData) => {
+      setIsTracking(tripData !== null);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const updateSubscriptionStatus = () => {
     setSubscriptionStatus(subscriptionService.getSubscriptionStatus());
   };
 
-  const handleStartTrip = () => {
+  const handleStartTrip = async () => {
     if (!subscriptionStatus) {
       updateSubscriptionStatus();
       return;
     }
 
-    if (subscriptionService.canStartTrip()) {
-      setIsTracking(true);
-    } else {
+    if (!subscriptionService.canStartTrip()) {
       setShowSubscription(true);
+      return;
     }
+
+    // Check location permission
+    const hasPermission = await locationService.requestPermission();
+    if (!hasPermission) {
+      alert('Location permission denied. Please enable location access in your browser settings.');
+      return;
+    }
+
+    // Initialize active trip in service
+    const settings = StorageService.getSettings();
+    const defaultCategory = (settings.defaultCategory as TripCategory) || TripCategory.Business;
+
+    ActiveTripService.saveActiveTrip({
+      startTime: Date.now(),
+      startLocation: null,
+      currentLocation: null,
+      distance: 0,
+      category: defaultCategory,
+      notes: ''
+    });
+
+    // Start location tracking
+    locationService.startTracking(
+      (location) => {
+        ActiveTripService.updateLocation(location);
+      },
+      (err) => {
+        console.error('Location tracking error:', err);
+      }
+    );
+
+    // Start timer
+    ActiveTripService.startTimer(() => {
+      ActiveTripService.updateDuration();
+    });
+
+    setIsTracking(true);
   };
 
   const handleTripEnded = () => {
