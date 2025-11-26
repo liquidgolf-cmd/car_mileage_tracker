@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-do
 import { ActiveTripService } from './services/ActiveTripService';
 import HomeView from './views/HomeView';
 import TripListView from './views/TripListView';
+import ExpenseListView from './views/ExpenseListView';
 import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
 import './App.css';
@@ -44,6 +45,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomeView />} />
           <Route path="/trips" element={<TripListView />} />
+          <Route path="/expenses" element={<ExpenseListView />} />
           <Route path="/reports" element={<ReportsView />} />
           <Route path="/settings" element={<SettingsView />} />
         </Routes>
@@ -56,6 +58,10 @@ function App() {
           <NavLink to="/trips" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             <span className="nav-icon">📋</span>
             <span>Trips</span>
+          </NavLink>
+          <NavLink to="/expenses" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            <span className="nav-icon">💰</span>
+            <span>Expenses</span>
           </NavLink>
           <NavLink to="/reports" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             <span className="nav-icon">📄</span>

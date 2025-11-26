@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trip, TripCategory } from '../types';
+import { Trip, TripCategory, Expense, ExpenseCategory } from '../types';
 import { format } from 'date-fns';
 import { StorageService } from '../services/StorageService';
 import { locationService } from '../services/LocationService';
+import ExpenseDetailView from './ExpenseDetailView';
 
 interface TripDetailViewProps {
   trip: Trip;
@@ -24,10 +25,17 @@ function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewPro
   const [isNewTrip, setIsNewTrip] = useState(!trip.startLocation && trip.distance === 0);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const calculateTimeoutRef = useRef<number | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [tripExpenses, setTripExpenses] = useState<Expense[]>([]);
 
   useEffect(() => {
     // Check if this is a new trip (no location data)
     setIsNewTrip(!trip.startLocation && trip.distance === 0);
+    // Load expenses for this trip
+    if (trip.id) {
+      const expenses = StorageService.getExpensesForTrip(trip.id);
+      setTripExpenses(expenses);
+    }
   }, [trip]);
 
   // Auto-calculate distance when addresses change
@@ -387,7 +395,110 @@ function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewPro
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+      {/* Linked Expenses Section */}
+      {!isNewTrip && (
+        <div className="card" style={{ marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '18px', margin: 0 }}>Linked Expenses</h3>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                const now = new Date();
+                const newExpense: Expense = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                  date: now,
+                  amount: 0,
+                  category: ExpenseCategory.Other,
+                  description: '',
+                  notes: '',
+                  tripId: trip.id
+                };
+                setSelectedExpense(newExpense);
+              }}
+            >
+              + Add Expense
+            </button>
+          </div>
+          
+          {tripExpenses.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+              <p style={{ margin: 0 }}>No expenses linked to this trip</p>
+            </div>
+          ) : (
+            <>
+              {tripExpenses.map((expense) => (
+                <div key={expense.id}>
+                  <div
+                    className="trip-item"
+                    onClick={() => setSelectedExpense(expense)}
+                    style={{ marginBottom: '8px', cursor: 'pointer' }}
+                  >
+                    <div className="trip-header">
+                      <span className="trip-category">{expense.category}</span>
+                      <span className="trip-date">{format(new Date(expense.date), 'MMM d, yyyy')}</span>
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ fontWeight: '500' }}>{expense.description}</div>
+                    </div>
+                    <div className="trip-details">
+                      <div></div>
+                      <div className="trip-amount">${expense.amount.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <div className="flex-between">
+                  <span style={{ fontWeight: '600' }}>Total Expenses:</span>
+                  <span style={{ fontWeight: '600', fontSize: '18px', color: 'var(--success-color)' }}>
+                    ${tripExpenses.reduce((sum, e) => sum + e.amount, 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {selectedExpense && (
+        <ExpenseDetailView
+          expense={selectedExpense}
+          preLinkedTripId={trip.id}
+          onClose={() => {
+            setSelectedExpense(null);
+            // Reload expenses
+            if (trip.id) {
+              const expenses = StorageService.getExpensesForTrip(trip.id);
+              setTripExpenses(expenses);
+            }
+          }}
+          onUpdate={(updated) => {
+            if (tripExpenses.find(e => e.id === updated.id)) {
+              StorageService.updateExpense(updated);
+            } else {
+              StorageService.saveExpense(updated);
+            }
+            setSelectedExpense(updated);
+            // Reload expenses
+            if (trip.id) {
+              const expenses = StorageService.getExpensesForTrip(trip.id);
+              setTripExpenses(expenses);
+            }
+          }}
+          onDelete={(id) => {
+            StorageService.deleteExpense(id);
+            setSelectedExpense(null);
+            // Reload expenses
+            if (trip.id) {
+              const expenses = StorageService.getExpensesForTrip(trip.id);
+              setTripExpenses(expenses);
+            }
+          }}
+        />
+      )}
+
+      {!selectedExpense && (
+        <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
         <button 
           className="btn btn-primary btn-full" 
           onClick={(e) => {
@@ -412,7 +523,8 @@ function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewPro
             Delete
           </button>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

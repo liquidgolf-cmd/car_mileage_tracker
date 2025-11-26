@@ -42,3 +42,35 @@ export interface SubscriptionStatus {
   freeTripsPerMonth: number;
 }
 
+export enum ExpenseCategory {
+  Gas = 'Gas',
+  Parking = 'Parking',
+  Tolls = 'Tolls',
+  Meals = 'Meals',
+  OfficeSupplies = 'Office Supplies',
+  Equipment = 'Equipment',
+  Phone = 'Phone',
+  Internet = 'Internet',
+  Software = 'Software',
+  Travel = 'Travel',
+  ProfessionalServices = 'Professional Services',
+  Other = 'Other'
+}
+
+export interface Expense {
+  id: string;
+  date: Date;
+  amount: number;
+  category: ExpenseCategory | string; // string for custom categories
+  description: string;
+  receiptImage?: string; // optional, base64 or URL for future receipt attachment
+  tripId?: string; // optional link to Trip
+  notes: string;
+}
+
+export enum ReportType {
+  Mileage = 'Mileage Only',
+  Expenses = 'Expenses Only',
+  Combined = 'Combined'
+}
+
