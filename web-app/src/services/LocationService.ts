@@ -116,6 +116,46 @@ export class LocationService {
     return R * c;
   }
 
+  async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+    // Use OpenStreetMap Nominatim API for forward geocoding
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'CarMileageTracker/1.0'
+          }
+        }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    }
+    return null;
+  }
+
+  async calculateDistanceFromAddresses(startAddress: string, endAddress: string): Promise<number | null> {
+    const startCoords = await this.geocodeAddress(startAddress);
+    const endCoords = await this.geocodeAddress(endAddress);
+    
+    if (startCoords && endCoords) {
+      return this.calculateDistance(
+        startCoords.lat,
+        startCoords.lng,
+        endCoords.lat,
+        endCoords.lng
+      );
+    }
+    
+    return null;
+  }
+
   private toRad(degrees: number): number {
     return degrees * (Math.PI / 180);
   }

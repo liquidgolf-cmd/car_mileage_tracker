@@ -85,7 +85,12 @@ function TripListView() {
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px' }}>
-        <h1>Trip History</h1>
+        <div>
+          <h1 style={{ marginBottom: '4px' }}>Trip History</h1>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+            Tap any trip to view and edit details
+          </p>
+        </div>
         <button className="btn btn-primary" onClick={handleCreateTrip}>
           + Add Trip
         </button>
@@ -106,6 +111,8 @@ function TripListView() {
             key={trip.id}
             className="trip-item"
             onClick={() => setSelectedTrip(trip)}
+            style={{ position: 'relative' }}
+            title="Tap to view and edit trip details"
           >
             <div className="trip-header">
               <span
@@ -114,13 +121,16 @@ function TripListView() {
               >
                 {trip.category}
               </span>
-              <span className="trip-date">
-                {format(new Date(trip.startDate), 'MMM d, h:mm a')}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="trip-date">
+                  {format(new Date(trip.startDate), 'MMM d, h:mm a')}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>✏️ Tap to edit</span>
+              </div>
             </div>
             <div className="trip-locations">
-              <div>{trip.startLocation}</div>
-              <div>→ {trip.endLocation}</div>
+              <div><strong>From:</strong> {trip.startLocation}</div>
+              <div><strong>To:</strong> {trip.endLocation}</div>
             </div>
             <div className="trip-details">
               <div></div>
