@@ -1,107 +1,60 @@
-# Car Mileage Tracking App - iOS MVP
+# Car Mileage Tracker
 
-A minimalist iOS mileage tracking app for freelancers and self-employed individuals.
+A minimalist mileage tracking app for freelancers and self-employed individuals. Available as both an iOS app and a web app.
 
-## Features
+## 📱 Project Structure
 
-### MVP (v1.0)
+This repository contains two versions of the mileage tracking app:
 
-- **One-tap trip start/stop** - Manual tracking with GPS
+- **iOS App** (`CarMileage/`) - Native iOS app built with SwiftUI
+- **Web App** (`web-app/`) - React + TypeScript web application
+
+Both apps share the same core features and design principles.
+
+## ✨ Features
+
+- **One-tap trip tracking** - Start/stop tracking with GPS
 - **Trip categorization** - Business, Personal, Medical, Charity
-- **IRS-compliant mileage rates** - 2025 rate pre-loaded ($0.67/mile), customizable
+- **IRS-compliant mileage rates** - $0.67/mile default (2025), customizable
 - **PDF report generation** - Professional "Business Expense Mileage Report"
-- **Local device storage** - Core Data for persistence
-- **Clean, minimalist UI** - Professional and friendly design
-- **Freemium model** - 40 trips/month free, unlimited with premium subscription
+- **Manual trip editing** - Add or edit trips you forgot to track
+- **Freemium model** - 40 trips/month free, unlimited with premium
 
-## Project Structure
+## 🚀 Quick Start
 
-```
-CarMileage/
-├── CarMileage/
-│   ├── App/
-│   │   └── CarMileageApp.swift
-│   ├── Models/
-│   │   ├── Trip+CoreDataClass.swift
-│   │   ├── Trip+CoreDataProperties.swift
-│   │   ├── TripCategory.swift
-│   │   └── MileageRate.swift
-│   ├── Views/
-│   │   ├── ContentView.swift
-│   │   ├── HomeView.swift
-│   │   ├── ActiveTripView.swift
-│   │   ├── TripListView.swift
-│   │   ├── TripDetailView.swift
-│   │   ├── ReportsView.swift
-│   │   ├── SettingsView.swift
-│   │   └── SubscriptionView.swift
-│   ├── ViewModels/
-│   │   ├── TripTrackerViewModel.swift
-│   │   └── ReportsViewModel.swift
-│   ├── Services/
-│   │   ├── LocationService.swift
-│   │   ├── CoreDataService.swift
-│   │   ├── PDFReportService.swift
-│   │   └── SubscriptionService.swift
-│   ├── Utilities/
-│   │   └── Extensions.swift
-│   └── Resources/
-│       ├── CarMileage.xcdatamodeld
-│       └── Info.plist
-```
+### Web App (Ready to Deploy)
 
-## Setup Instructions
+The web app is ready to deploy to Vercel. See:
+- [GITHUB_SETUP.md](./GITHUB_SETUP.md) - GitHub & Vercel deployment guide
+- [web-app/VERCEL_DEPLOY.md](./web-app/VERCEL_DEPLOY.md) - Detailed deployment steps
 
-### Prerequisites
+### iOS App
 
-- Xcode 15.0 or later
-- iOS 17.0+ deployment target
-- Apple Developer account (for testing on device and App Store submission)
+The iOS app requires Xcode. See:
+- [CarMileage/README.md](./CarMileage/README.md) - iOS setup instructions
+- [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) - Implementation details
 
-### Steps
+## 📖 Documentation
 
-1. Open the project in Xcode
-2. Select your development team in project settings
-3. Configure App Store Connect for In-App Purchases (SubscriptionService uses product ID: `com.carmileage.premium.monthly`)
-4. Build and run on simulator or device
+- [PROJECT OVERVIEW.txt](./PROJECT%20OVERVIEW.txt) - Original project requirements
+- [GITHUB_SETUP.md](./GITHUB_SETUP.md) - GitHub repository setup guide
 
-### Location Permissions
+## 🔧 Tech Stack
 
-The app requires location permissions. Make sure Info.plist includes:
-- `NSLocationWhenInUseUsageDescription`
-- `NSLocationAlwaysAndWhenInUseUsageDescription`
+### Web App
+- React 18 + TypeScript
+- Vite
+- React Router
+- jsPDF for reports
+- Geolocation API
 
-### Core Data Model
+### iOS App
+- SwiftUI
+- Core Data
+- CoreLocation
+- PDFKit
+- StoreKit 2
 
-The Core Data model is defined in `CarMileage.xcdatamodeld`. Make sure it's properly loaded in `CoreDataService`.
+## 📝 License
 
-## Configuration
-
-### Subscription Setup
-
-To enable subscriptions:
-1. Create subscription product in App Store Connect with ID: `com.carmileage.premium.monthly`
-2. Set pricing ($4.99-$9.99/month recommended)
-3. The app will automatically handle subscription verification
-
-### Custom Mileage Rate
-
-Users can override the default IRS rate in Settings. Default is $0.67/mile for 2025.
-
-## Development Notes
-
-- Uses SwiftUI for modern declarative UI
-- Core Data for local persistence
-- StoreKit 2 for subscriptions
-- CoreLocation for GPS tracking
-- PDFKit for report generation
-
-## Future Enhancements (Post-MVP)
-
-- Automatic trip detection
-- Cloud sync/backup
-- Photo receipt attachment
-- Calendar integration
-- Favorite locations
-- Monthly notifications
-
+Private project
