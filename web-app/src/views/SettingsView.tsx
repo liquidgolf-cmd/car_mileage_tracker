@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { StorageService, AppSettings } from '../services/StorageService';
 import { subscriptionService } from '../services/SubscriptionService';
 import { AutoTrackingService } from '../services/AutoTrackingService';
 import { locationService } from '../services/LocationService';
+import { AuthService } from '../services/AuthService';
 import { TripCategory, SubscriptionStatus, ExpenseCategory, Business } from '../types';
 import SubscriptionView from './SubscriptionView';
 
@@ -159,12 +161,14 @@ function CustomCategoryAdder({ onCategoryAdded }: { onCategoryAdded: () => void 
 }
 
 function SettingsView() {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<AppSettings>(StorageService.getSettings());
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [showSubscription, setShowSubscription] = useState(false);
   const [showRateEditor, setShowRateEditor] = useState(false);
   const [editedRate, setEditedRate] = useState(settings.mileageRate.toString());
   const [autoTrackingEnabled, setAutoTrackingEnabled] = useState(AutoTrackingService.isAutoTrackingEnabled());
+  const [currentUser] = useState(AuthService.getCurrentUser());
 
   useEffect(() => {
     setSubscriptionStatus(subscriptionService.getSubscriptionStatus());
@@ -422,6 +426,34 @@ function SettingsView() {
           // Force re-render
           setSettings({ ...settings });
         }} />
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: '20px' }}>Account</h3>
+        {currentUser && (
+          <div className="flex-between mb-2">
+            <span>Name</span>
+            <span style={{ fontWeight: '500' }}>{currentUser.name}</span>
+          </div>
+        )}
+        {currentUser && (
+          <div className="flex-between mb-2">
+            <span>Email</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{currentUser.email}</span>
+          </div>
+        )}
+        <button
+          className="btn btn-outline btn-full mt-3"
+          onClick={() => {
+            if (window.confirm('Are you sure you want to sign out?')) {
+              AuthService.logout();
+              navigate('/login');
+            }
+          }}
+          style={{ color: 'var(--danger-color)' }}
+        >
+          Sign Out
+        </button>
       </div>
 
       <div className="card">
