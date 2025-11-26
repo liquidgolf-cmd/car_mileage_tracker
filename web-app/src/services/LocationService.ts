@@ -75,7 +75,7 @@ export class LocationService {
     this.onLocationUpdate = null;
   }
 
-  private async reverseGeocode(lat: number, lng: number): Promise<string> {
+  async reverseGeocode(lat: number, lng: number): Promise<string> {
     // Use OpenStreetMap Nominatim API (free, no API key required)
     try {
       const response = await fetch(

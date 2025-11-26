@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { StorageService, AppSettings } from '../services/StorageService';
 import { subscriptionService } from '../services/SubscriptionService';
+import { AutoTrackingService } from '../services/AutoTrackingService';
+import { locationService } from '../services/LocationService';
 import { TripCategory, SubscriptionStatus, ExpenseCategory, Business } from '../types';
 import SubscriptionView from './SubscriptionView';
 
@@ -162,9 +164,18 @@ function SettingsView() {
   const [showSubscription, setShowSubscription] = useState(false);
   const [showRateEditor, setShowRateEditor] = useState(false);
   const [editedRate, setEditedRate] = useState(settings.mileageRate.toString());
+  const [autoTrackingEnabled, setAutoTrackingEnabled] = useState(AutoTrackingService.isAutoTrackingEnabled());
 
   useEffect(() => {
     setSubscriptionStatus(subscriptionService.getSubscriptionStatus());
+    setAutoTrackingEnabled(AutoTrackingService.isAutoTrackingEnabled());
+    
+    // Subscribe to auto-tracking changes
+    const unsubscribe = AutoTrackingService.subscribe(() => {
+      setAutoTrackingEnabled(AutoTrackingService.isAutoTrackingEnabled());
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const handleSaveSettings = () => {
@@ -206,6 +217,63 @@ function SettingsView() {
 
       <div className="card">
         <h3 style={{ marginBottom: '20px' }}>Trip Settings</h3>
+        
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <div className="flex-between">
+            <div>
+              <label className="form-label" style={{ marginBottom: '4px' }}>Auto-Tracking</label>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                Automatically detect and record trips when driving
+              </p>
+            </div>
+            <button
+              className="btn"
+              onClick={async () => {
+                const enabled = !autoTrackingEnabled;
+                if (enabled) {
+                  // Request permission first
+                  const hasPermission = await locationService.requestPermission();
+                  if (!hasPermission) {
+                    alert('Location permission is required for auto-tracking. Please enable location access in your browser settings.');
+                    return;
+                  }
+                }
+                
+                if (enabled) {
+                  AutoTrackingService.enableAutoTracking();
+                } else {
+                  AutoTrackingService.disableAutoTracking();
+                }
+                AutoTrackingService.savePreference(enabled);
+                setAutoTrackingEnabled(enabled);
+              }}
+              style={{
+                background: autoTrackingEnabled ? 'var(--primary-color)' : 'var(--border-color)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                minWidth: '60px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {autoTrackingEnabled ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {autoTrackingEnabled && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '12px', 
+              background: 'var(--background)', 
+              borderRadius: '8px',
+              fontSize: '12px',
+              color: 'var(--text-secondary)'
+            }}>
+              <strong>Note:</strong> Auto-tracking works best when the app is open or running in the background. 
+              Web apps have limited background capabilities. For best results, keep the app open or use a mobile browser 
+              that supports background location tracking.
+            </div>
+          )}
+        </div>
         
         <div className="form-group">
           <label className="form-label">Default Category</label>

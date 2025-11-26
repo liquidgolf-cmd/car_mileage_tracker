@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
 import { ActiveTripService } from './services/ActiveTripService';
+import { AutoTrackingService } from './services/AutoTrackingService';
+import { locationService } from './services/LocationService';
 import HomeView from './views/HomeView';
 import TripListView from './views/TripListView';
 import ExpenseListView from './views/ExpenseListView';
@@ -24,7 +26,7 @@ function App() {
     }
 
     // Subscribe to active trip changes
-    const unsubscribe = ActiveTripService.subscribe((tripData) => {
+    const unsubscribeTrip = ActiveTripService.subscribe((tripData) => {
       if (tripData) {
         // Start timer when trip becomes active
         ActiveTripService.startTimer(() => {
@@ -36,8 +38,18 @@ function App() {
       }
     });
 
+    // Initialize auto-tracking if enabled
+    const wasAutoTrackingEnabled = AutoTrackingService.loadPreference();
+    if (wasAutoTrackingEnabled) {
+      locationService.requestPermission().then((granted) => {
+        if (granted) {
+          AutoTrackingService.enableAutoTracking();
+        }
+      });
+    }
+
     return () => {
-      unsubscribe();
+      unsubscribeTrip();
       // Don't stop timer here - let it run until trip ends
     };
   }, []);

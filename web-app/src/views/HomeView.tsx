@@ -4,6 +4,7 @@ import { subscriptionService } from '../services/SubscriptionService';
 import { ActiveTripService } from '../services/ActiveTripService';
 import { locationService } from '../services/LocationService';
 import { StorageService } from '../services/StorageService';
+import { AutoTrackingService } from '../services/AutoTrackingService';
 import { SubscriptionStatus, TripCategory } from '../types';
 import ActiveTripView from './ActiveTripView';
 import SubscriptionView from './SubscriptionView';
@@ -11,6 +12,8 @@ import SubscriptionView from './SubscriptionView';
 function HomeView() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [isTracking, setIsTracking] = useState(ActiveTripService.isActive());
+  const [isAutoTrackingEnabled, setIsAutoTrackingEnabled] = useState(AutoTrackingService.isAutoTrackingEnabled());
+  const [isDriving, setIsDriving] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const navigate = useNavigate();
 
@@ -20,12 +23,28 @@ function HomeView() {
     setIsTracking(ActiveTripService.isActive());
     
     // Subscribe to active trip changes
-    const unsubscribe = ActiveTripService.subscribe((tripData) => {
+    const unsubscribeTrip = ActiveTripService.subscribe((tripData) => {
       setIsTracking(tripData !== null);
     });
 
+    // Subscribe to auto-tracking status
+    const unsubscribeAuto = AutoTrackingService.subscribe((driving) => {
+      setIsDriving(driving);
+      setIsAutoTrackingEnabled(AutoTrackingService.isAutoTrackingEnabled());
+      
+      // If auto-tracking started a trip, update tracking state
+      if (driving && ActiveTripService.isActive()) {
+        setIsTracking(true);
+      }
+    });
+
+    // Check initial auto-tracking state
+    setIsAutoTrackingEnabled(AutoTrackingService.isAutoTrackingEnabled());
+    setIsDriving(AutoTrackingService.isCurrentlyDriving());
+
     return () => {
-      unsubscribe();
+      unsubscribeTrip();
+      unsubscribeAuto();
     };
   }, []);
 
@@ -97,6 +116,32 @@ function HomeView() {
       <h1 className="text-center" style={{ marginTop: '40px', marginBottom: '40px' }}>
         Mileage Tracker
       </h1>
+
+      {/* Auto-Tracking Status */}
+      {isAutoTrackingEnabled && (
+        <div className="card" style={{ 
+          background: isDriving ? 'rgba(52, 199, 89, 0.1)' : 'var(--surface)',
+          border: `1px solid ${isDriving ? 'var(--success-color)' : 'var(--border-color)'}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                {isDriving ? '🟢 Auto-Tracking Active' : '⚪ Auto-Tracking Monitoring'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {isDriving 
+                  ? 'Trip started automatically - driving detected'
+                  : 'Monitoring for driving activity'}
+              </div>
+              {isDriving && (
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Speed: {Math.round(AutoTrackingService.getCurrentSpeed())} mph
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {subscriptionStatus && !subscriptionStatus.isPremium && (
         <div className="card text-center">
