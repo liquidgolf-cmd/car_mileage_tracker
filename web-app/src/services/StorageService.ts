@@ -1,8 +1,10 @@
-import { Trip, Expense } from '../types';
+import { Trip, Expense, Business, Receipt } from '../types';
 
 const TRIPS_STORAGE_KEY = 'car_mileage_trips';
 const EXPENSES_STORAGE_KEY = 'car_mileage_expenses';
 const SETTINGS_STORAGE_KEY = 'car_mileage_settings';
+const BUSINESSES_STORAGE_KEY = 'car_mileage_businesses';
+const RECEIPTS_STORAGE_KEY = 'car_mileage_receipts';
 
 export interface AppSettings {
   defaultCategory: string;
@@ -174,6 +176,122 @@ export class StorageService {
   static isCustomCategoryInUse(category: string): boolean {
     const expenses = this.getExpenses();
     return expenses.some(expense => expense.category === category);
+  }
+
+  // Business methods
+  static getBusinesses(): Business[] {
+    try {
+      const stored = localStorage.getItem(BUSINESSES_STORAGE_KEY);
+      if (!stored) return [];
+      
+      const businesses = JSON.parse(stored);
+      return businesses.map((business: any) => ({
+        ...business,
+        createdAt: new Date(business.createdAt)
+      }));
+    } catch (error) {
+      console.error('Error loading businesses:', error);
+      return [];
+    }
+  }
+
+  static saveBusiness(business: Business): void {
+    const businesses = this.getBusinesses();
+    const existingIndex = businesses.findIndex(b => b.id === business.id);
+    
+    if (existingIndex !== -1) {
+      businesses[existingIndex] = business;
+    } else {
+      businesses.push(business);
+    }
+    
+    localStorage.setItem(BUSINESSES_STORAGE_KEY, JSON.stringify(businesses));
+  }
+
+  static updateBusiness(business: Business): void {
+    this.saveBusiness(business);
+  }
+
+  static deleteBusiness(businessId: string): void {
+    const businesses = this.getBusinesses();
+    const filtered = businesses.filter(b => b.id !== businessId);
+    localStorage.setItem(BUSINESSES_STORAGE_KEY, JSON.stringify(filtered));
+  }
+
+  static getBusiness(businessId: string): Business | undefined {
+    const businesses = this.getBusinesses();
+    return businesses.find(b => b.id === businessId);
+  }
+
+  static isBusinessInUse(businessId: string): boolean {
+    const trips = this.getTrips();
+    const expenses = this.getExpenses();
+    return trips.some(trip => trip.businessId === businessId) ||
+           expenses.some(expense => expense.businessId === businessId);
+  }
+
+  // Receipt methods
+  static getReceipts(): Receipt[] {
+    try {
+      const stored = localStorage.getItem(RECEIPTS_STORAGE_KEY);
+      if (!stored) return [];
+      
+      const receipts = JSON.parse(stored);
+      return receipts.map((receipt: any) => ({
+        ...receipt,
+        uploadDate: new Date(receipt.uploadDate),
+        extractedData: receipt.extractedData ? {
+          ...receipt.extractedData,
+          date: receipt.extractedData.date ? new Date(receipt.extractedData.date) : undefined
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Error loading receipts:', error);
+      return [];
+    }
+  }
+
+  static saveReceipt(receipt: Receipt): void {
+    const receipts = this.getReceipts();
+    const existingIndex = receipts.findIndex(r => r.id === receipt.id);
+    
+    if (existingIndex !== -1) {
+      receipts[existingIndex] = receipt;
+    } else {
+      receipts.unshift(receipt); // Add to beginning
+    }
+    
+    localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(receipts));
+  }
+
+  static updateReceipt(receipt: Receipt): void {
+    this.saveReceipt(receipt);
+  }
+
+  static deleteReceipt(receiptId: string): void {
+    const receipts = this.getReceipts();
+    const filtered = receipts.filter(r => r.id !== receiptId);
+    localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(filtered));
+  }
+
+  static getReceiptsForDateRange(startDate: Date, endDate: Date): Receipt[] {
+    const receipts = this.getReceipts();
+    return receipts.filter(receipt => {
+      const receiptDate = new Date(receipt.uploadDate);
+      return receiptDate >= startDate && receiptDate <= endDate;
+    });
+  }
+
+  static getUnprocessedReceipts(): Receipt[] {
+    return this.getReceipts().filter(r => !r.expenseId);
+  }
+
+  static linkReceiptToExpense(receiptId: string, expenseId: string): void {
+    const receipt = this.getReceipts().find(r => r.id === receiptId);
+    if (receipt) {
+      receipt.expenseId = expenseId;
+      this.saveReceipt(receipt);
+    }
   }
 }
 

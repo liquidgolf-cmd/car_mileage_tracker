@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Expense, ExpenseCategory } from '../types';
 import { format } from 'date-fns';
 import { StorageService } from '../services/StorageService';
@@ -12,14 +13,25 @@ interface ExpenseDetailViewProps {
 }
 
 function ExpenseDetailView({ expense, onUpdate, onDelete, onClose, preLinkedTripId }: ExpenseDetailViewProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [date, setDate] = useState(format(new Date(expense.date), "yyyy-MM-dd"));
   const [amount, setAmount] = useState(expense.amount > 0 ? expense.amount.toString() : '');
   const [category, setCategory] = useState<string>(expense.category);
   const [description, setDescription] = useState(expense.description || '');
   const [notes, setNotes] = useState(expense.notes || '');
   const [tripId, setTripId] = useState<string>(expense.tripId || preLinkedTripId || '');
+  const [businessId, setBusinessId] = useState<string>(expense.businessId || '');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false);
+
+  // Check if navigating from receipt (will have receiptImage)
+  useEffect(() => {
+    const state = location.state as { fromReceipt?: boolean } | undefined;
+    if (state?.fromReceipt && expense.receiptImage) {
+      // Already pre-filled from receipt conversion
+    }
+  }, [location.state, expense.receiptImage]);
 
   const allCategories = [
     ...Object.values(ExpenseCategory),
@@ -27,6 +39,7 @@ function ExpenseDetailView({ expense, onUpdate, onDelete, onClose, preLinkedTrip
   ].sort();
 
   const trips = StorageService.getTrips().slice(0, 20); // Show recent 20 trips
+  const businesses = StorageService.getBusinesses();
 
   const isNewExpense = !expense.description || expense.description.trim() === '';
 
@@ -60,7 +73,9 @@ function ExpenseDetailView({ expense, onUpdate, onDelete, onClose, preLinkedTrip
       category: category.trim(),
       description: description.trim(),
       notes: notes.trim(),
-      tripId: tripId || undefined
+      tripId: tripId || undefined,
+      businessId: businessId || undefined,
+      receiptImage: expense.receiptImage // Preserve receipt image if exists
     };
 
     onUpdate(updatedExpense);
@@ -201,6 +216,59 @@ function ExpenseDetailView({ expense, onUpdate, onDelete, onClose, preLinkedTrip
             {description.length}/200 characters
           </div>
         </div>
+
+        {/* Receipt Image Display */}
+        {expense.receiptImage && (
+          <div className="form-group">
+            <label className="form-label">Receipt</label>
+            <div style={{ 
+              marginTop: '8px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              background: 'var(--background)',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              // Find receipt linked to this expense and navigate to it
+              const receipts = StorageService.getReceipts();
+              const linkedReceipt = receipts.find(r => r.expenseId === expense.id);
+              if (linkedReceipt) {
+                navigate(`/receipts/${linkedReceipt.id}`);
+              }
+            }}>
+              <img
+                src={expense.receiptImage}
+                alt="Receipt"
+                style={{
+                  width: '100%',
+                  maxHeight: '300px',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
+              />
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Tap receipt to view full size
+            </div>
+          </div>
+        )}
+
+        {/* Business Selection */}
+        {businesses.length > 0 && (
+          <div className="form-group">
+            <label className="form-label">Business (Optional)</label>
+            <select
+              className="form-select"
+              value={businessId}
+              onChange={(e) => setBusinessId(e.target.value)}
+            >
+              <option value="">No business selected</option>
+              {businesses.map((business) => (
+                <option key={business.id} value={business.id}>{business.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="form-group">
           <label className="form-label">Link to Trip (Optional)</label>

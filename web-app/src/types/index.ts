@@ -2,7 +2,15 @@ export enum TripCategory {
   Business = 'Business',
   Personal = 'Personal',
   Medical = 'Medical',
-  Charity = 'Charity'
+  Charity = 'Charity',
+  Uncategorized = 'Uncategorized'
+}
+
+export interface Business {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: Date;
 }
 
 export interface Trip {
@@ -17,6 +25,7 @@ export interface Trip {
   endLongitude: number;
   distance: number; // in miles
   category: TripCategory;
+  businessId?: string;
   notes: string;
   mileageRate: number;
   totalDeduction: number;
@@ -65,6 +74,7 @@ export interface Expense {
   description: string;
   receiptImage?: string; // optional, base64 or URL for future receipt attachment
   tripId?: string; // optional link to Trip
+  businessId?: string;
   notes: string;
 }
 
@@ -72,5 +82,23 @@ export enum ReportType {
   Mileage = 'Mileage Only',
   Expenses = 'Expenses Only',
   Combined = 'Combined'
+}
+
+export interface ReceiptExtractedData {
+  amount?: number;
+  date?: Date;
+  merchant?: string;
+  items?: string[];
+  confidence: number; // 0-1
+  rawText?: string;
+}
+
+export interface Receipt {
+  id: string;
+  imageData: string; // base64 encoded image
+  uploadDate: Date;
+  extractedData?: ReceiptExtractedData;
+  expenseId?: string; // linked expense if converted
+  businessId?: string;
 }
 

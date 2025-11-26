@@ -14,6 +14,7 @@ interface TripDetailViewProps {
 
 function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewProps) {
   const [category, setCategory] = useState<TripCategory>(trip.category);
+  const [businessId, setBusinessId] = useState<string>(trip.businessId || '');
   const [notes, setNotes] = useState(trip.notes || '');
   const [startDate, setStartDate] = useState(format(new Date(trip.startDate), "yyyy-MM-dd"));
   const [startTime, setStartTime] = useState(format(new Date(trip.startDate), "HH:mm"));
@@ -157,6 +158,7 @@ function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewPro
         endLongitude: endCoords.lng,
         distance: distanceNum,
         category,
+        businessId: businessId || undefined,
         notes: (notes || '').trim(),
         mileageRate,
         totalDeduction: parseFloat((distanceNum * mileageRate).toFixed(2))
@@ -294,13 +296,41 @@ function TripDetailView({ trip, onUpdate, onDelete, onClose }: TripDetailViewPro
           <select
             className="form-select"
             value={category}
-            onChange={(e) => setCategory(e.target.value as TripCategory)}
+            onChange={(e) => {
+              const newCategory = e.target.value as TripCategory;
+              setCategory(newCategory);
+              // Clear business if category is not Business
+              if (newCategory !== TripCategory.Business) {
+                setBusinessId('');
+              }
+            }}
           >
             {Object.values(TripCategory).map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </div>
+
+        {category === TripCategory.Business && StorageService.getBusinesses().length > 0 && (
+          <div className="form-group">
+            <label className="form-label">Business (Optional)</label>
+            <select
+              className="form-select"
+              value={businessId}
+              onChange={(e) => setBusinessId(e.target.value)}
+            >
+              <option value="">No business selected</option>
+              {StorageService.getBusinesses().map((business) => (
+                <option key={business.id} value={business.id}>{business.name}</option>
+              ))}
+            </select>
+            {businessId && (
+              <div style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                Selected: {StorageService.getBusinesses().find(b => b.id === businessId)?.name}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label className="form-label">Notes</label>

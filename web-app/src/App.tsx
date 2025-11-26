@@ -6,6 +6,9 @@ import TripListView from './views/TripListView';
 import ExpenseListView from './views/ExpenseListView';
 import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
+import TripCategorizationView from './views/TripCategorizationView';
+import ReceiptListView from './views/ReceiptListView';
+import ReceiptDetailView from './views/ReceiptDetailView';
 import './App.css';
 
 function App() {
@@ -48,6 +51,9 @@ function App() {
           <Route path="/expenses" element={<ExpenseListView />} />
           <Route path="/reports" element={<ReportsView />} />
           <Route path="/settings" element={<SettingsView />} />
+          <Route path="/trip-categorization" element={<TripCategorizationView />} />
+          <Route path="/receipts" element={<ReceiptListView />} />
+          <Route path="/receipts/:id" element={<ReceiptDetailView />} />
         </Routes>
         
         <nav className="bottom-nav">
@@ -62,6 +68,10 @@ function App() {
           <NavLink to="/expenses" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             <span className="nav-icon">💰</span>
             <span>Expenses</span>
+          </NavLink>
+          <NavLink to="/receipts" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            <span className="nav-icon">📷</span>
+            <span>Receipts</span>
           </NavLink>
           <NavLink to="/reports" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             <span className="nav-icon">📄</span>

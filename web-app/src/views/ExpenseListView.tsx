@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { StorageService } from '../services/StorageService';
 import { Expense, ExpenseCategory } from '../types';
 import { format } from 'date-fns';
 import ExpenseDetailView from './ExpenseDetailView';
 
 function ExpenseListView() {
+  const location = useLocation();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -13,6 +15,17 @@ function ExpenseListView() {
   useEffect(() => {
     loadExpenses();
   }, []);
+
+  // Auto-open expense if navigating from receipt
+  useEffect(() => {
+    const state = location.state as { openExpenseId?: string } | undefined;
+    if (state?.openExpenseId && expenses.length > 0) {
+      const expenseToOpen = expenses.find(e => e.id === state.openExpenseId);
+      if (expenseToOpen) {
+        setSelectedExpense(expenseToOpen);
+      }
+    }
+  }, [location.state, expenses]);
 
   useEffect(() => {
     applyFilters();

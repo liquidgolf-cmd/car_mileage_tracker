@@ -1,8 +1,85 @@
 import { useState, useEffect } from 'react';
 import { StorageService, AppSettings } from '../services/StorageService';
 import { subscriptionService } from '../services/SubscriptionService';
-import { TripCategory, SubscriptionStatus, ExpenseCategory } from '../types';
+import { TripCategory, SubscriptionStatus, ExpenseCategory, Business } from '../types';
 import SubscriptionView from './SubscriptionView';
+
+function BusinessAdder({ onBusinessAdded }: { onBusinessAdded: () => void }) {
+  const [newBusiness, setNewBusiness] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = () => {
+    const trimmed = newBusiness.trim();
+    if (!trimmed) {
+      alert('Please enter a business name');
+      return;
+    }
+
+    const businesses = StorageService.getBusinesses();
+    if (businesses.some(b => b.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('This business name already exists');
+      setNewBusiness('');
+      return;
+    }
+
+    const business: Business = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      name: trimmed,
+      createdAt: new Date()
+    };
+
+    StorageService.saveBusiness(business);
+    setNewBusiness('');
+    setIsAdding(false);
+    onBusinessAdded();
+  };
+
+  if (!isAdding) {
+    return (
+      <button
+        className="btn btn-outline btn-full"
+        onClick={() => setIsAdding(true)}
+      >
+        + Add Business
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '8px' }}>
+      <input
+        type="text"
+        className="form-input"
+        value={newBusiness}
+        onChange={(e) => setNewBusiness(e.target.value)}
+        placeholder="Business name"
+        style={{ flex: 1 }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleAdd();
+          }
+          if (e.key === 'Escape') {
+            setIsAdding(false);
+            setNewBusiness('');
+          }
+        }}
+        autoFocus
+      />
+      <button className="btn btn-primary" onClick={handleAdd}>
+        Add
+      </button>
+      <button
+        className="btn btn-outline"
+        onClick={() => {
+          setIsAdding(false);
+          setNewBusiness('');
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
 
 function CustomCategoryAdder({ onCategoryAdded }: { onCategoryAdded: () => void }) {
   const [newCategory, setNewCategory] = useState('');
@@ -219,6 +296,64 @@ function SettingsView() {
             setSettings({ ...settings });
           }} />
         </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: '20px' }}>Businesses</h3>
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          Manage your business entities. Assign trips and expenses to specific businesses.
+        </p>
+        
+        {StorageService.getBusinesses().length === 0 ? (
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+            No businesses yet. Add one below.
+          </p>
+        ) : (
+          <div style={{ marginBottom: '16px' }}>
+            {StorageService.getBusinesses().map((business) => {
+              const inUse = StorageService.isBusinessInUse(business.id);
+              return (
+                <div
+                  key={business.id}
+                  className="flex-between"
+                  style={{
+                    padding: '12px',
+                    background: 'var(--background)',
+                    borderRadius: '8px',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <span style={{ fontWeight: '500' }}>{business.name}</span>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      if (inUse) {
+                        alert(`Cannot delete "${business.name}" because it's being used by one or more trips or expenses.`);
+                      } else if (window.confirm(`Delete business "${business.name}"?`)) {
+                        StorageService.deleteBusiness(business.id);
+                        // Force re-render
+                        setSettings({ ...settings });
+                      }
+                    }}
+                    disabled={inUse}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      opacity: inUse ? 0.5 : 1
+                    }}
+                  >
+                    {inUse ? 'In Use' : 'Delete'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
+        <BusinessAdder onBusinessAdded={() => {
+          // Force re-render
+          setSettings({ ...settings });
+        }} />
       </div>
 
       <div className="card">
