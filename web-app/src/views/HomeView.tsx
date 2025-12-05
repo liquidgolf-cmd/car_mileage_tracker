@@ -96,12 +96,18 @@ function HomeView() {
     });
 
     // Start location tracking
+    console.log('[Start Trip] Starting location tracking...');
     locationService.startTracking(
       (location) => {
+        console.log('[Start Trip] Location received, updating trip:', {
+          lat: location.latitude,
+          lng: location.longitude,
+          address: location.address
+        });
         ActiveTripService.updateLocation(location);
       },
       (err) => {
-        console.error('Location tracking error:', err);
+        console.error('[Start Trip] Location tracking error:', err);
       }
     );
 

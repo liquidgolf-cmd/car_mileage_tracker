@@ -102,11 +102,20 @@ export class ActiveTripService {
 
   static updateLocation(location: LocationData): void {
     const activeTrip = this.getActiveTrip();
-    if (!activeTrip) return;
+    if (!activeTrip) {
+      console.warn('[ActiveTrip] updateLocation called but no active trip');
+      return;
+    }
+
+    console.log('[ActiveTrip] Location update received:', {
+      hasStartLocation: !!activeTrip.startLocation,
+      newLocation: { lat: location.latitude, lng: location.longitude }
+    });
 
     // If no start location yet, set it
     if (!activeTrip.startLocation) {
       activeTrip.startLocation = location;
+      console.log('[ActiveTrip] Start location set:', location);
     }
 
     activeTrip.currentLocation = location;
@@ -120,6 +129,9 @@ export class ActiveTripService {
         location.longitude
       );
       activeTrip.distance = dist;
+      console.log('[ActiveTrip] Distance updated:', dist.toFixed(2), 'miles');
+    } else {
+      console.warn('[ActiveTrip] Cannot calculate distance - no start location');
     }
     
     this.saveActiveTrip(activeTrip);

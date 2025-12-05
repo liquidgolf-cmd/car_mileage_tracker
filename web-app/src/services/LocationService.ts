@@ -82,6 +82,12 @@ export class LocationService {
 
     this.watchId = navigator.geolocation.watchPosition(
       async (position) => {
+        console.log('[Location] Position update received:', {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+        
         const location: LocationData = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -89,45 +95,53 @@ export class LocationService {
           timestamp: new Date()
         };
 
-        // Reverse geocode
-        try {
-          location.address = await this.reverseGeocode(
-            location.latitude,
-            location.longitude
-          );
-        } catch (error) {
-          location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
-        }
-
-        this.onLocationUpdate?.(location);
+        // Reverse geocode (non-blocking, don't wait)
+        this.reverseGeocode(location.latitude, location.longitude)
+          .then((address) => {
+            location.address = address;
+          })
+          .catch(() => {
+            location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
+          })
+          .finally(() => {
+            // Always call onUpdate, even if geocoding fails
+            this.onLocationUpdate?.(location);
+            console.log('[Location] Location update sent:', location);
+          });
       },
       (error) => {
-        // Handle different location error codes
-        let errorMessage = 'Location error: ';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location unavailable. Your device may not be able to determine location.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out. Please try again.';
-            break;
-          default:
-            errorMessage = `Location error: ${error.message || 'Unable to get location'}`;
-        }
-        
         // Suppress CoreLocation framework errors (harmless browser warnings)
-        const shouldSuppress = error.message?.includes('CoreLocation') || 
-                              error.message?.includes('kCLError');
+        const errorMessage = error.message || '';
+        const isCoreLocationError = errorMessage.includes('CoreLocation') || 
+                                   errorMessage.includes('kCLError');
         
-        if (!shouldSuppress) {
-          onError?.(new Error(errorMessage));
+        if (!isCoreLocationError) {
+          // Only log actual errors, not harmless CoreLocation warnings
+          let errorMsg = 'Location error: ';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg = 'Location permission denied. Please enable location access in your browser settings.';
+              console.error('[Location]', errorMsg);
+              onError?.(new Error(errorMsg));
+              break;
+            case error.POSITION_UNAVAILABLE:
+              // Position unavailable is common - log as debug
+              console.debug('[Location] Position temporarily unavailable - will retry');
+              break;
+            case error.TIMEOUT:
+              // Timeout is common - log as debug
+              console.debug('[Location] Location request timed out - will retry');
+              break;
+            default:
+              console.warn('[Location] Location error (will retry):', error.message || 'Unknown error');
+          }
         }
+        // Continue watching - location may become available later
       },
       options
     );
+    
+    console.log('[Location] Location tracking started, watchId:', this.watchId);
   }
 
   stopTracking(): void {
