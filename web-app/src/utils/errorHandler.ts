@@ -58,16 +58,13 @@ export function shouldSuppressWarning(message: string): boolean {
 
 /**
  * Setup error suppression for non-critical errors
- * Only suppresses in production to keep dev console clean for debugging
  */
 export function setupErrorSuppression(): void {
-  // Suppress in both dev and production for cleaner console
   const originalError = console.error;
   const originalWarn = console.warn;
 
   // Override console.error to filter out non-critical errors
   console.error = (...args: any[]) => {
-    const message = args[0]?.toString() || '';
     const source = args[1]?.toString() || '';
     
     // Check all arguments for error patterns
@@ -83,8 +80,6 @@ export function setupErrorSuppression(): void {
 
   // Override console.warn to filter out non-critical warnings
   console.warn = (...args: any[]) => {
-    const message = args[0]?.toString() || '';
-    
     // Check all arguments for warning patterns
     const allArgs = args.map(arg => 
       typeof arg === 'string' ? arg : 
@@ -99,16 +94,10 @@ export function setupErrorSuppression(): void {
   // Suppress unhandled promise rejections for known non-critical errors
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason?.toString() || '';
-    const message = event.reason?.message || '';
+    const errorMessage = event.reason?.message || '';
     
-    if (shouldSuppressError(reason + ' ' + message)) {
+    if (shouldSuppressError(reason + ' ' + errorMessage)) {
       event.preventDefault();
-      // Optionally log in dev mode
-      if (import.meta.env.DEV) {
-        console.debug('Suppressed non-critical error:', reason);
-      }
     }
   });
-
 }
-
