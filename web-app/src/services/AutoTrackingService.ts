@@ -36,8 +36,12 @@ export class AutoTrackingService {
   }
 
   static enableAutoTracking(): void {
-    if (this.isEnabled) return;
+    if (this.isEnabled) {
+      console.log('[Auto-Tracking] Already enabled');
+      return;
+    }
     
+    console.log('[Auto-Tracking] Enabling auto-tracking...');
     this.isEnabled = true;
     this.startMonitoring();
   }
@@ -58,10 +62,12 @@ export class AutoTrackingService {
 
   private static startMonitoring(): void {
     if (!navigator.geolocation) {
-      console.error('Geolocation not supported');
+      console.error('[Auto-Tracking] Geolocation not supported');
       return;
     }
 
+    console.log('[Auto-Tracking] Starting location monitoring...');
+    
     const options: PositionOptions = {
       enableHighAccuracy: true,
       maximumAge: 5000,
@@ -74,10 +80,21 @@ export class AutoTrackingService {
         await this.handleLocationUpdate(position);
       },
       (error) => {
-        console.error('Auto-tracking location error:', error);
+        console.error('[Auto-Tracking] Location error:', error);
+        let errorMsg = 'Unknown error';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = 'Permission denied - check browser settings';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = 'Position unavailable - GPS signal weak?';
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = 'Location request timed out';
+        }
+        console.error(`[Auto-Tracking] ${errorMsg}`);
       },
       options
     );
+    
+    console.log('[Auto-Tracking] Monitoring started successfully');
   }
 
   private static stopMonitoring(): void {
@@ -188,20 +205,32 @@ export class AutoTrackingService {
       if (!this.isDriving) {
         this.drivingStartTime = now;
         this.stationaryStartTime = null;
+        console.log(`[Auto-Tracking] Detected movement at ${avgSpeed.toFixed(1)} mph - starting timer`);
       }
       
       // Check if we've been moving long enough to start tracking
-      if (this.drivingStartTime && (now - this.drivingStartTime) >= this.MIN_TRIP_START_TIME) {
-        this.startAutoTrip(location);
-        this.isDriving = true;
-        this.tripActive = true;
-        this.lastSignificantMovement = now;
-        this.lastSignificantLocation = location;
-        this.notifyListeners(true);
+      if (this.drivingStartTime) {
+        const timeMoving = now - this.drivingStartTime;
+        const timeRemaining = (this.MIN_TRIP_START_TIME - timeMoving) / 1000;
+        
+        if (timeMoving >= this.MIN_TRIP_START_TIME) {
+          console.log(`[Auto-Tracking] Starting trip - been moving for ${(timeMoving / 1000).toFixed(0)}s at ${avgSpeed.toFixed(1)} mph`);
+          this.startAutoTrip(location);
+          this.isDriving = true;
+          this.tripActive = true;
+          this.lastSignificantMovement = now;
+          this.lastSignificantLocation = location;
+          this.notifyListeners(true);
+        } else if (timeMoving % 5000 < 1000) { // Log every 5 seconds
+          console.log(`[Auto-Tracking] Moving at ${avgSpeed.toFixed(1)} mph - ${timeRemaining.toFixed(0)}s until trip starts`);
+        }
       }
     } else {
       // Not moving fast enough - reset start timer
-      this.drivingStartTime = null;
+      if (this.drivingStartTime) {
+        console.log(`[Auto-Tracking] Speed dropped to ${avgSpeed.toFixed(1)} mph (need ${this.TRIP_START_SPEED_THRESHOLD} mph) - resetting timer`);
+        this.drivingStartTime = null;
+      }
     }
   }
 

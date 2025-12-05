@@ -136,7 +136,7 @@ function HomeView() {
           border: `1px solid ${isDriving ? 'var(--success-color)' : 'var(--border-color)'}`
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontWeight: '600', marginBottom: '4px' }}>
                 {isDriving ? '🟢 Auto-Tracking Active' : '⚪ Auto-Tracking Monitoring'}
               </div>
@@ -150,7 +150,22 @@ function HomeView() {
                   Speed: {Math.round(AutoTrackingService.getCurrentSpeed())} mph
                 </div>
               )}
+              {!isDriving && AutoTrackingService.getCurrentSpeed() > 0 && (
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Speed: {Math.round(AutoTrackingService.getCurrentSpeed())} mph (need 10 mph for 30s to start)
+                </div>
+              )}
             </div>
+          </div>
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '12px', 
+            background: 'var(--background)', 
+            borderRadius: '8px',
+            fontSize: '12px',
+            color: 'var(--text-secondary)'
+          }}>
+            <strong>Note:</strong> Auto-tracking requires the app to be open. Web apps cannot track in the background when closed.
           </div>
         </div>
       )}
