@@ -72,12 +72,61 @@ export class LocationService {
       return;
     }
 
+    // Stop any existing tracking first
+    this.stopTracking();
+    console.log('[Location] Starting location tracking...');
+
     this.onLocationUpdate = onUpdate;
 
-    const options: PositionOptions = {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000
+    // Phase 1: Try to get initial location quickly using cached/lower accuracy
+    // This gives us a location immediately while GPS locks in the background
+    console.log('[Location] Getting initial location (fast, cached allowed)...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('[Location] Initial location received:', {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+        
+        const location: LocationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          address: '',
+          timestamp: new Date()
+        };
+
+        // Reverse geocode (non-blocking)
+        this.reverseGeocode(location.latitude, location.longitude)
+          .then((address) => {
+            location.address = address;
+          })
+          .catch(() => {
+            location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
+          })
+          .finally(() => {
+            // Always call onUpdate with initial location
+            this.onLocationUpdate?.(location);
+            console.log('[Location] Initial location sent:', location);
+          });
+      },
+      (error) => {
+        // Initial location failed - that's okay, watchPosition will try again
+        console.debug('[Location] Initial location failed (will continue with watchPosition):', error.message);
+      },
+      {
+        enableHighAccuracy: false, // Use cached/network location first (faster)
+        maximumAge: 60000, // Allow up to 1 minute old cached location
+        timeout: 5000 // Quick timeout - if GPS isn't ready, we'll get it from watchPosition
+      }
+    );
+
+    // Phase 2: Start continuous tracking with watchPosition
+    // This will provide updates as GPS gets more accurate
+    const watchOptions: PositionOptions = {
+      enableHighAccuracy: true, // Use GPS for continuous tracking
+      maximumAge: 10000, // Allow cached location up to 10 seconds old
+      timeout: 30000 // Longer timeout - give GPS time to lock
     };
 
     this.watchId = navigator.geolocation.watchPosition(
@@ -117,28 +166,30 @@ export class LocationService {
         
         if (!isCoreLocationError) {
           // Only log actual errors, not harmless CoreLocation warnings
-          let errorMsg = 'Location error: ';
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              errorMsg = 'Location permission denied. Please enable location access in your browser settings.';
+              const errorMsg = 'Location permission denied. Please enable location access in your browser settings.';
               console.error('[Location]', errorMsg);
               onError?.(new Error(errorMsg));
+              // Stop tracking if permission denied
+              this.stopTracking();
               break;
             case error.POSITION_UNAVAILABLE:
               // Position unavailable is common - log as debug
-              console.debug('[Location] Position temporarily unavailable - will retry');
+              console.debug('[Location] Position temporarily unavailable - will continue watching');
               break;
             case error.TIMEOUT:
               // Timeout is common - log as debug
-              console.debug('[Location] Location request timed out - will retry');
+              console.debug('[Location] Location request timed out - will continue watching');
               break;
             default:
-              console.warn('[Location] Location error (will retry):', error.message || 'Unknown error');
+              console.debug('[Location] Location error (will continue watching):', error.message || 'Unknown error');
           }
         }
         // Continue watching - location may become available later
+        // watchPosition continues even after errors
       },
-      options
+      watchOptions
     );
     
     console.log('[Location] Location tracking started, watchId:', this.watchId);
@@ -148,8 +199,13 @@ export class LocationService {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
+      console.log('[Location] Tracking stopped.');
     }
     this.onLocationUpdate = null;
+  }
+
+  isTracking(): boolean {
+    return this.watchId !== null;
   }
 
   async reverseGeocode(lat: number, lng: number): Promise<string> {
