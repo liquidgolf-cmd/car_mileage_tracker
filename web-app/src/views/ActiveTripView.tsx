@@ -50,22 +50,50 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
   }
 
   const handleEndTrip = async () => {
-    if (!tripData.startLocation || !tripData.currentLocation) {
-      setError('Missing trip data');
-      return;
+    try {
+      console.log('[End Trip] Stopping trip...', tripData);
+      
+      // Store trip data before clearing (in case location data is missing)
+      const tripToSave = { ...tripData };
+      
+      // Stop location tracking immediately
+      locationService.stopTracking();
+      console.log('[End Trip] Location tracking stopped');
+      
+      // Stop timer immediately
+      ActiveTripService.stopTimer();
+      console.log('[End Trip] Timer stopped');
+      
+      // Clear the active trip immediately to prevent restart
+      ActiveTripService.clearActiveTrip();
+      console.log('[End Trip] Active trip cleared');
+      
+      // Stop auto-tracking briefly to prevent it from interfering
+      const { AutoTrackingService } = await import('../services/AutoTrackingService');
+      const wasAutoTrackingEnabled = AutoTrackingService.isAutoTrackingEnabled();
+      if (wasAutoTrackingEnabled) {
+        // Temporarily disable to prevent restart
+        AutoTrackingService.disableAutoTracking();
+        // Re-enable after navigation completes
+        setTimeout(() => {
+          AutoTrackingService.enableAutoTracking();
+        }, 2000);
+      }
+      
+      // Call onTripEnded to update parent state
+      onTripEnded();
+      
+      // Navigate to categorization screen with trip data
+      // Even if location data is missing, allow ending the trip
+      navigate('/trip-categorization', { 
+        state: { tripData: tripToSave } 
+      });
+      
+      console.log('[End Trip] Navigation to categorization screen');
+    } catch (error) {
+      console.error('[End Trip] Error ending trip:', error);
+      setError('Failed to end trip. Please try again.');
     }
-
-    // Stop tracking and location updates, but keep trip data
-    locationService.stopTracking();
-    ActiveTripService.stopTimer();
-    
-    // Navigate to categorization screen with trip data
-    navigate('/trip-categorization', { 
-      state: { tripData } 
-    });
-    
-    // Call onTripEnded to update parent state
-    onTripEnded();
   };
 
   const formatDuration = (seconds: number): string => {
