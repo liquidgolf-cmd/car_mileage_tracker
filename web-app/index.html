@@ -7,37 +7,50 @@
     <title>Car Mileage Tracker</title>
     <script>
       // Early error suppression - runs before React loads
+      // This catches browser-level errors that occur before JavaScript loads
       (function() {
         const suppressedPatterns = [
-          'CoreLocation',
-          'CoreLocationProvider',
-          'kCLError',
-          'kCLErrorLocationUnknown',
-          'reported a kCLErrorLocationUnknown',
-          'CoreLocation framework'
+          'corelocation',
+          'corelocationprovider',
+          'kclerror',
+          'kclerrorlocationunknown',
+          'reported a kclerrorlocationunknown',
+          'corelocation framework',
+          'framework reported',
+          'failure'
         ];
         
         function shouldSuppress(msg) {
           const lowerMsg = String(msg).toLowerCase();
           return suppressedPatterns.some(pattern => 
-            lowerMsg.includes(pattern.toLowerCase())
+            lowerMsg.includes(pattern)
           );
         }
         
         const originalError = console.error;
         const originalWarn = console.warn;
+        const originalLog = console.log;
         
+        // Override all console methods that might log errors
         console.error = function(...args) {
-          const msg = args.map(a => String(a)).join(' ');
+          const msg = args.map(a => String(a)).join(' ').toLowerCase();
           if (!shouldSuppress(msg)) {
             originalError.apply(console, args);
           }
         };
         
         console.warn = function(...args) {
-          const msg = args.map(a => String(a)).join(' ');
+          const msg = args.map(a => String(a)).join(' ').toLowerCase();
           if (!shouldSuppress(msg)) {
             originalWarn.apply(console, args);
+          }
+        };
+        
+        // Some browsers log CoreLocation errors to console.log
+        console.log = function(...args) {
+          const msg = args.map(a => String(a)).join(' ').toLowerCase();
+          if (!shouldSuppress(msg)) {
+            originalLog.apply(console, args);
           }
         };
       })();
