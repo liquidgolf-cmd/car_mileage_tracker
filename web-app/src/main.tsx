@@ -2,6 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { setupErrorSuppression } from './utils/errorHandler'
+
+// Suppress non-critical console errors in production
+setupErrorSuppression()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
