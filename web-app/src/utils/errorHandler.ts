@@ -25,7 +25,10 @@ const suppressedErrors = [
   'CoreLocation',
   'CoreLocationProvider',
   'kCLError',
-  'kCLErrorLocationUnknown'
+  'kCLErrorLocationUnknown',
+  'reported a kCLErrorLocationUnknown',
+  'CoreLocation framework reported',
+  'CLErrorLocationUnknown'
 ];
 
 const suppressedWarnings = [

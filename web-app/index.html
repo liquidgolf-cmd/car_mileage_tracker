@@ -5,6 +5,43 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <title>Car Mileage Tracker</title>
+    <script>
+      // Early error suppression - runs before React loads
+      (function() {
+        const suppressedPatterns = [
+          'CoreLocation',
+          'CoreLocationProvider',
+          'kCLError',
+          'kCLErrorLocationUnknown',
+          'reported a kCLErrorLocationUnknown',
+          'CoreLocation framework'
+        ];
+        
+        function shouldSuppress(msg) {
+          const lowerMsg = String(msg).toLowerCase();
+          return suppressedPatterns.some(pattern => 
+            lowerMsg.includes(pattern.toLowerCase())
+          );
+        }
+        
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.error = function(...args) {
+          const msg = args.map(a => String(a)).join(' ');
+          if (!shouldSuppress(msg)) {
+            originalError.apply(console, args);
+          }
+        };
+        
+        console.warn = function(...args) {
+          const msg = args.map(a => String(a)).join(' ');
+          if (!shouldSuppress(msg)) {
+            originalWarn.apply(console, args);
+          }
+        };
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
