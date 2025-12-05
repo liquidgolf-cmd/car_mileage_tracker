@@ -12,6 +12,7 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [tripData, setTripData] = useState(ActiveTripService.getActiveTrip());
+  const [locationWarning, setLocationWarning] = useState<string | null>(null);
 
   useEffect(() => {
     // Subscribe to trip data updates
@@ -40,21 +41,45 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
     const activeTrip = ActiveTripService.getActiveTrip();
     if (activeTrip) {
       console.log('[ActiveTripView] Ensuring location tracking is active for existing trip');
+      
+      // Track if we've received any location updates
+      let hasReceivedLocation = false;
+      const locationTimeout = setTimeout(() => {
+        if (!hasReceivedLocation) {
+          setLocationWarning(
+            'Location not updating. Check Mac Location Services:\n\n' +
+            '1. System Settings → Privacy & Security → Location Services\n' +
+            '2. Enable Location Services and allow Chrome\n' +
+            '3. Check Chrome site permissions (lock icon in address bar)'
+          );
+        }
+      }, 15000); // Show warning after 15 seconds with no location
+      
       // Restart location tracking to ensure it's running
       locationService.stopTracking(); // Stop any existing tracking first
       locationService.startTracking(
         (location) => {
           console.log('[ActiveTripView] Location update received:', location);
+          hasReceivedLocation = true;
+          setLocationWarning(null); // Clear warning when location works
           ActiveTripService.updateLocation(location);
         },
         (err) => {
           console.error('[ActiveTripView] Location tracking error:', err);
+          setLocationWarning('Location error: ' + err.message);
         }
       );
+      
+      // Cleanup: Don't stop tracking when component unmounts
+      // Only stop when explicitly ending the trip
+      return () => {
+        unsubscribe();
+        clearInterval(intervalId);
+        clearTimeout(locationTimeout);
+      };
     }
 
-    // Cleanup: Don't stop tracking when component unmounts
-    // Only stop when explicitly ending the trip
+    // Cleanup if no active trip
     return () => {
       unsubscribe();
       clearInterval(intervalId);
@@ -142,6 +167,20 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
           <div className="text-secondary">miles</div>
         </div>
 
+        {locationWarning && (
+          <div style={{ 
+            background: '#fff3cd', 
+            color: '#856404', 
+            padding: '12px', 
+            borderRadius: '8px', 
+            marginBottom: '16px',
+            fontSize: '14px',
+            whiteSpace: 'pre-line'
+          }}>
+            ⚠️ {locationWarning}
+          </div>
+        )}
+        
         {error && (
           <div style={{ color: 'var(--danger-color)', marginBottom: '16px' }}>
             {error}
