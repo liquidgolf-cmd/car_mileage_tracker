@@ -80,16 +80,26 @@ export class AutoTrackingService {
         await this.handleLocationUpdate(position);
       },
       (error) => {
-        console.error('[Auto-Tracking] Location error:', error);
-        let errorMsg = 'Unknown error';
-        if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = 'Permission denied - check browser settings';
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          errorMsg = 'Position unavailable - GPS signal weak?';
-        } else if (error.code === error.TIMEOUT) {
-          errorMsg = 'Location request timed out';
+        // Suppress CoreLocation errors (harmless browser warnings)
+        const errorMessage = error.message || error.toString() || '';
+        const isCoreLocationError = errorMessage.includes('CoreLocation') || 
+                                   errorMessage.includes('kCLError');
+        
+        if (!isCoreLocationError) {
+          // Only log actual errors, not harmless CoreLocation warnings
+          if (error.code === error.PERMISSION_DENIED) {
+            console.error('[Auto-Tracking] Permission denied - check browser settings');
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            // Position unavailable is common (GPS signal weak, etc.) - just log as debug
+            console.debug('[Auto-Tracking] Location temporarily unavailable - will retry');
+          } else if (error.code === error.TIMEOUT) {
+            // Timeout is also common - just log as debug
+            console.debug('[Auto-Tracking] Location request timed out - will retry');
+          } else {
+            console.warn('[Auto-Tracking] Location error (will retry):', error);
+          }
         }
-        console.error(`[Auto-Tracking] ${errorMsg}`);
+        // Continue monitoring even on errors - location may become available later
       },
       options
     );
