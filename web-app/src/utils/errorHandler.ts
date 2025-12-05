@@ -28,7 +28,10 @@ const suppressedErrors = [
   'kCLErrorLocationUnknown',
   'reported a kCLErrorLocationUnknown',
   'CoreLocation framework reported',
-  'CLErrorLocationUnknown'
+  'CLErrorLocationUnknown',
+  // Auto-tracking location errors (temporary GPS issues, will retry)
+  'Auto-tracking location error',
+  'GeolocationPositionError'
 ];
 
 const suppressedWarnings = [
