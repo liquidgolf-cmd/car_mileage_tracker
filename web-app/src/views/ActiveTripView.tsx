@@ -36,6 +36,23 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
       }
     }, 1000);
 
+    // Ensure location tracking is running for active trip
+    const activeTrip = ActiveTripService.getActiveTrip();
+    if (activeTrip) {
+      console.log('[ActiveTripView] Ensuring location tracking is active for existing trip');
+      // Restart location tracking to ensure it's running
+      locationService.stopTracking(); // Stop any existing tracking first
+      locationService.startTracking(
+        (location) => {
+          console.log('[ActiveTripView] Location update received:', location);
+          ActiveTripService.updateLocation(location);
+        },
+        (err) => {
+          console.error('[ActiveTripView] Location tracking error:', err);
+        }
+      );
+    }
+
     // Cleanup: Don't stop tracking when component unmounts
     // Only stop when explicitly ending the trip
     return () => {
