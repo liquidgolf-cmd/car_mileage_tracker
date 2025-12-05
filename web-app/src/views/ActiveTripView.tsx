@@ -53,8 +53,9 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
     try {
       console.log('[End Trip] Stopping trip...', tripData);
       
-      // Store trip data before clearing (in case location data is missing)
+      // Store trip data BEFORE doing anything else (preserve all data)
       const tripToSave = { ...tripData };
+      console.log('[End Trip] Trip data preserved:', tripToSave);
       
       // Stop location tracking immediately
       locationService.stopTracking();
@@ -64,9 +65,8 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
       ActiveTripService.stopTimer();
       console.log('[End Trip] Timer stopped');
       
-      // Clear the active trip immediately to prevent restart
-      ActiveTripService.clearActiveTrip();
-      console.log('[End Trip] Active trip cleared');
+      // IMPORTANT: Don't clear active trip yet - wait until it's saved
+      // This ensures trip data is available if navigation state is lost
       
       // Stop auto-tracking briefly to prevent it from interfering
       const { AutoTrackingService } = await import('../services/AutoTrackingService');
@@ -84,12 +84,13 @@ function ActiveTripView({ onTripEnded }: ActiveTripViewProps) {
       onTripEnded();
       
       // Navigate to categorization screen with trip data
-      // Even if location data is missing, allow ending the trip
+      // Pass trip data in navigation state
       navigate('/trip-categorization', { 
-        state: { tripData: tripToSave } 
+        state: { tripData: tripToSave },
+        replace: false // Use replace: false to preserve navigation state
       });
       
-      console.log('[End Trip] Navigation to categorization screen');
+      console.log('[End Trip] Navigation to categorization screen with trip data');
     } catch (error) {
       console.error('[End Trip] Error ending trip:', error);
       setError('Failed to end trip. Please try again.');

@@ -18,12 +18,42 @@ function TripCategorizationView() {
 
   useEffect(() => {
     // Get trip data from location state or ActiveTripService
-    const data = (location.state as { tripData?: ActiveTripData })?.tripData || ActiveTripService.getActiveTrip();
+    const stateData = (location.state as { tripData?: ActiveTripData })?.tripData;
+    const activeTripData = ActiveTripService.getActiveTrip();
+    const data = stateData || activeTripData;
     
-    if (!data || !data.startLocation || !data.currentLocation) {
-      // No trip data available, redirect to home
+    console.log('[Trip Categorization] Loading trip data:', {
+      fromState: !!stateData,
+      fromActiveTrip: !!activeTripData,
+      hasData: !!data,
+      hasStartLocation: !!data?.startLocation,
+      hasCurrentLocation: !!data?.currentLocation
+    });
+    
+    if (!data) {
+      // No trip data available at all, redirect to home
+      console.error('[Trip Categorization] No trip data found, redirecting to home');
       navigate('/');
       return;
+    }
+
+    // Allow trips even without location data - user can still save it
+    // Just use default/empty locations if missing
+    if (!data.startLocation || !data.currentLocation) {
+      console.warn('[Trip Categorization] Trip missing location data, using defaults');
+      // Create default location data if missing
+      data.startLocation = data.startLocation || {
+        latitude: 0,
+        longitude: 0,
+        address: 'Location not available',
+        timestamp: new Date(data.startTime)
+      };
+      data.currentLocation = data.currentLocation || {
+        latitude: 0,
+        longitude: 0,
+        address: 'Location not available',
+        timestamp: new Date()
+      };
     }
 
     setTripData(data);
