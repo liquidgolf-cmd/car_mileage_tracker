@@ -61,7 +61,29 @@ export class LocationService {
         this.onLocationUpdate?.(location);
       },
       (error) => {
-        onError?.(new Error(`Location error: ${error.message}`));
+        // Handle different location error codes
+        let errorMessage = 'Location error: ';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location unavailable. Please check your device location settings.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out. Please try again.';
+            break;
+          default:
+            errorMessage = `Location error: ${error.message || 'Unable to get location'}`;
+        }
+        
+        // Suppress CoreLocation framework errors (harmless browser warnings)
+        const shouldSuppress = error.message?.includes('CoreLocation') || 
+                              error.message?.includes('kCLError');
+        
+        if (!shouldSuppress) {
+          onError?.(new Error(errorMessage));
+        }
       },
       options
     );

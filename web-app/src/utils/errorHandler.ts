@@ -20,7 +20,12 @@ const suppressedErrors = [
   // Font CSP warnings (from Vercel's CSP, doesn't affect app)
   'font-src',
   'Content Security Policy',
-  'violates the following Content Security Policy'
+  'violates the following Content Security Policy',
+  // CoreLocation framework errors (harmless browser location warnings)
+  'CoreLocation',
+  'CoreLocationProvider',
+  'kCLError',
+  'kCLErrorLocationUnknown'
 ];
 
 const suppressedWarnings = [
