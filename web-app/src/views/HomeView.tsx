@@ -64,10 +64,22 @@ function HomeView() {
     }
 
     // Check location permission
-    const hasPermission = await locationService.requestPermission();
-    if (!hasPermission) {
-      alert('Location permission denied. Please enable location access in your browser settings.');
-      return;
+    try {
+      const hasPermission = await locationService.requestPermission();
+      if (!hasPermission) {
+        alert(
+          'Location permission is required to track trips.\n\n' +
+          'Please:\n' +
+          '1. Allow location access when your browser prompts you\n' +
+          '2. Check your browser settings to ensure location is enabled\n' +
+          '3. On Mac: Enable Location Services in System Settings → Privacy & Security'
+        );
+        return;
+      }
+    } catch (error) {
+      // If permission check fails, try to start trip anyway
+      // Location tracking will handle errors gracefully and may work once GPS signal is available
+      console.warn('Location permission check had issues, but attempting to start trip:', error);
     }
 
     // Initialize active trip in service

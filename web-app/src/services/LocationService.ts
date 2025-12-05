@@ -13,11 +13,52 @@ export class LocationService {
       throw new Error('Geolocation is not supported by your browser');
     }
 
+    // Check Permissions API first (if available) - more reliable
+    if ('permissions' in navigator) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        
+        // If permission is granted, return true immediately
+        if (permissionStatus.state === 'granted') {
+          return true;
+        }
+        
+        // If explicitly denied, return false
+        if (permissionStatus.state === 'denied') {
+          return false;
+        }
+        
+        // If 'prompt', we need to try getting position to trigger the prompt
+        // Continue to fallback check below
+      } catch (error) {
+        // Permissions API might not be fully supported (Safari), fall through
+        console.debug('Permissions API check failed, using position check');
+      }
+    }
+
+    // Fallback: Try to get position (will trigger permission prompt if needed)
+    // Be more lenient - only fail if permission is actually denied
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
         () => resolve(true),
-        () => resolve(false),
-        { timeout: 5000 }
+        (error) => {
+          // Only treat PERMISSION_DENIED as a permission issue
+          // Other errors (POSITION_UNAVAILABLE, TIMEOUT) mean permission might be granted
+          // but location temporarily unavailable - allow trip to start anyway
+          if (error.code === error.PERMISSION_DENIED) {
+            resolve(false);
+          } else {
+            // Position unavailable or timeout - permission is likely granted
+            // but location temporarily unavailable (GPS signal, CoreLocation errors, etc.)
+            // Allow trip to start - location will work when available
+            resolve(true);
+          }
+        },
+        { 
+          timeout: 10000, // Longer timeout
+          maximumAge: 60000, // Allow cached location (up to 1 minute old)
+          enableHighAccuracy: false // Start with lower accuracy (faster, less likely to fail)
+        }
       );
     });
   }
@@ -68,7 +109,7 @@ export class LocationService {
             errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location unavailable. Please check your device location settings.';
+            errorMessage = 'Location unavailable. Your device may not be able to determine location.';
             break;
           case error.TIMEOUT:
             errorMessage = 'Location request timed out. Please try again.';
@@ -184,4 +225,3 @@ export class LocationService {
 }
 
 export const locationService = new LocationService();
-
