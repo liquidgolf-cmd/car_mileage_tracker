@@ -8,6 +8,7 @@ import { AutoTrackingService } from '../services/AutoTrackingService';
 import { SubscriptionStatus, TripCategory } from '../types';
 import ActiveTripView from './ActiveTripView';
 import SubscriptionView from './SubscriptionView';
+import { locationService } from '../services/LocationService';
 
 function HomeView() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
@@ -135,14 +136,58 @@ function HomeView() {
         Mileage Tracker
       </h1>
 
-      {/* Auto-Tracking Status */}
-      {isAutoTrackingEnabled && (
-        <div className="card" style={{ 
-          background: isDriving ? 'rgba(52, 199, 89, 0.1)' : 'var(--surface)',
-          border: `1px solid ${isDriving ? 'var(--success-color)' : 'var(--border-color)'}`
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ flex: 1 }}>
+      {/* Auto-Tracking Toggle and Status */}
+      <div className="card">
+        <div className="flex-between" style={{ marginBottom: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Auto-Tracking</div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+              Automatically detect and record trips when driving
+            </p>
+          </div>
+          <button
+            className="btn"
+            onClick={async () => {
+              const enabled = !isAutoTrackingEnabled;
+              if (enabled) {
+                // Request permission first
+                const hasPermission = await locationService.requestPermission();
+                if (!hasPermission) {
+                  alert('Location permission is required for auto-tracking. Please enable location access in your browser settings.');
+                  return;
+                }
+              }
+              
+              if (enabled) {
+                AutoTrackingService.enableAutoTracking();
+              } else {
+                AutoTrackingService.disableAutoTracking();
+              }
+              AutoTrackingService.savePreference(enabled);
+              setIsAutoTrackingEnabled(enabled);
+            }}
+            style={{
+              background: isAutoTrackingEnabled ? 'var(--primary-color)' : 'var(--border-color)',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '20px',
+              minWidth: '60px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {isAutoTrackingEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        
+        {isAutoTrackingEnabled && (
+          <>
+            <div style={{ 
+              padding: '12px', 
+              background: isDriving ? 'rgba(52, 199, 89, 0.1)' : 'var(--background)', 
+              borderRadius: '8px',
+              border: `1px solid ${isDriving ? 'var(--success-color)' : 'var(--border-color)'}`,
+              marginTop: '12px'
+            }}>
               <div style={{ fontWeight: '600', marginBottom: '4px' }}>
                 {isDriving ? '🟢 Auto-Tracking Active' : '⚪ Auto-Tracking Monitoring'}
               </div>
@@ -162,19 +207,19 @@ function HomeView() {
                 </div>
               )}
             </div>
-          </div>
-          <div style={{ 
-            marginTop: '12px', 
-            padding: '12px', 
-            background: 'var(--background)', 
-            borderRadius: '8px',
-            fontSize: '12px',
-            color: 'var(--text-secondary)'
-          }}>
-            <strong>Note:</strong> Auto-tracking requires the app to be open. Web apps cannot track in the background when closed.
-          </div>
-        </div>
-      )}
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '12px', 
+              background: 'var(--background)', 
+              borderRadius: '8px',
+              fontSize: '12px',
+              color: 'var(--text-secondary)'
+            }}>
+              <strong>Note:</strong> Auto-tracking requires the app to be open. Web apps cannot track in the background when closed.
+            </div>
+          </>
+        )}
+      </div>
 
       {subscriptionStatus && !subscriptionStatus.isPremium && (
         <div className="card text-center">
