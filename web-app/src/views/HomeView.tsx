@@ -8,7 +8,6 @@ import { AutoTrackingService } from '../services/AutoTrackingService';
 import { SubscriptionStatus, TripCategory } from '../types';
 import ActiveTripView from './ActiveTripView';
 import SubscriptionView from './SubscriptionView';
-import { locationService } from '../services/LocationService';
 
 function HomeView() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
