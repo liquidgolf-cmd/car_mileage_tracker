@@ -182,19 +182,14 @@ function HomeView() {
           <div
             className="big-number"
             style={{
-              color: subscriptionStatus.tripsThisMonth >= subscriptionStatus.freeTripsPerMonth ? 'var(--danger-color)' : 'var(--primary-color)'
+              color: 'var(--primary-color)'
             }}
           >
-            {subscriptionStatus.tripsThisMonth}/{subscriptionStatus.freeTripsPerMonth}
+            {subscriptionStatus.tripsThisMonth}
           </div>
-          {subscriptionStatus.tripsThisMonth >= subscriptionStatus.freeTripsPerMonth && (
-            <button
-              className="btn btn-primary mt-2"
-              onClick={() => setShowSubscription(true)}
-            >
-              Upgrade to Premium
-            </button>
-          )}
+          <div className="text-secondary" style={{ fontSize: '14px', marginTop: '4px' }}>
+            Unlimited trips
+          </div>
         </div>
       )}
 

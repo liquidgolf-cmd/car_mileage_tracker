@@ -5,7 +5,7 @@ const PREMIUM_STORAGE_KEY = 'car_mileage_premium';
 
 export class SubscriptionService {
   private static instance: SubscriptionService;
-  private freeTripsPerMonth = 40;
+  private freeTripsPerMonth = Infinity; // Unlimited trips
 
   static getInstance(): SubscriptionService {
     if (!SubscriptionService.instance) {
@@ -44,9 +44,8 @@ export class SubscriptionService {
   }
 
   canStartTrip(): boolean {
-    const status = this.getSubscriptionStatus();
-    if (status.isPremium) return true;
-    return status.tripsThisMonth < this.freeTripsPerMonth;
+    // Unlimited trips for all users
+    return true;
   }
 
   setPremium(isPremium: boolean, expiresAt?: Date): void {
