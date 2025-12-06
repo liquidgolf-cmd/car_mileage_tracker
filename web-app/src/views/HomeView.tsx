@@ -220,36 +220,51 @@ function HomeView() {
         )}
       </div>
 
-      {subscriptionStatus && !subscriptionStatus.isPremium && (
-        <div className="card text-center">
-          <div className="text-secondary mb-1">Trips This Month</div>
-          <div
-            className="big-number"
-            style={{
-              color: 'var(--primary-color)'
-            }}
-          >
-            {subscriptionStatus.tripsThisMonth}
+      <div className="card" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        gap: '20px',
+        padding: '20px'
+      }}>
+        {subscriptionStatus && !subscriptionStatus.isPremium && (
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div className="text-secondary mb-1" style={{ fontSize: '12px' }}>Trips This Month</div>
+            <div
+              className="big-number"
+              style={{
+                color: 'var(--primary-color)',
+                fontSize: '32px',
+                lineHeight: '1.2'
+              }}
+            >
+              {subscriptionStatus.tripsThisMonth}
+            </div>
+            <div className="text-secondary" style={{ fontSize: '11px', marginTop: '2px' }}>
+              Unlimited
+            </div>
           </div>
-          <div className="text-secondary" style={{ fontSize: '14px', marginTop: '4px' }}>
-            Unlimited trips
-          </div>
-        </div>
-      )}
-
-      <div style={{ marginTop: '60px', marginBottom: '60px' }}>
+        )}
         <button
-          className="btn btn-primary btn-full btn-large"
+          className="btn btn-primary"
           onClick={handleStartTrip}
           disabled={subscriptionStatus ? !subscriptionService.canStartTrip() : false}
           style={{
             background: subscriptionStatus && subscriptionService.canStartTrip()
               ? 'var(--primary-color)'
               : 'var(--text-secondary)',
-            opacity: subscriptionStatus && subscriptionService.canStartTrip() ? 1 : 0.5
+            opacity: subscriptionStatus && subscriptionService.canStartTrip() ? 1 : 0.5,
+            flex: subscriptionStatus && !subscriptionStatus.isPremium ? 1 : 'none',
+            padding: '16px 24px',
+            fontSize: '18px',
+            fontWeight: '600',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px'
           }}
         >
-          <span style={{ fontSize: '48px', marginBottom: '8px' }}>📍</span>
+          <span style={{ fontSize: '32px' }}>📍</span>
           <div>Start Trip</div>
         </button>
       </div>
